@@ -1,66 +1,95 @@
-import numpy as np
-import matplotlib.pyplot as plt
-MAXCOUNT = 100
-cities = np.array([[3,2],[1,5],[5,4],[4,7],[0,8],[3,11],[7,9],[9,6],[10,2],[14,0],[2,16],[6,18],[11,17],[15,12],[19,9],[22,5],[21,0],[27,9],[15,19],[10,10]])
-
-def calDist(xindex, yindex):
-    return (np.sum(np.power(cities[xindex] - cities[yindex], 2))) ** 0.5
-
-def calPathDist(indexList):
-    sum = 0.0
-    for i in range(1, len(indexList)):
-        sum += calDist(indexList[i], indexList[i - 1])
-    return sum
-
-def pathCompare(path1, path2):
-    if calPathDist(path1) <= calPathDist(path2):
-        return True
-    return False
-
-def generateRandomPath(bestPath):
-    a = np.random.randint(len(bestPath))
-    while True:
-        b = np.random.randint(len(bestPath))
-        if np.abs(a - b) > 1:
-            break
-            if a > b:
-                return b, a, bestPath[b:a + 1]
-            else:
-                return a, b, bestPath[a:b + 1]
-
-def reversePath(path):
-    rePath = path.copy()
-    rePath[1:-1] = rePath[-2:0:-1]
-    return rePath
-
-def updateBestPath(bestPath):
-    count = 0
-    while count < MAXCOUNT:
-        print(calPathDist(bestPath))
-        print(bestPath.tolist())
-        start, end, path = generateRandomPath(bestPath)
-        rePath = reversePath(path)
-        if pathCompare(path, rePath):
-            count += 1
-            continue
-        else:
-            count = 0
-            bestPath[start:end + 1] = rePath
-            return bestPath
-
-def draw(bestPath):
-    ax = plt.subplot(111, aspect='equal')
-    ax.plot(cities[:, 0], cities[:, 1], 'x', color='blue')
-    for i, city in enumerate(cities):
-        ax.text(city[0], city[1], str(i))
-    ax.plot(cities[bestPath, 0], cities[bestPath, 1], color='red')
-    plt.show()
-
-def opt2():
-    #随便选择一条可行路径
-    bestPath = np.arange(0, len(cities))
-    bestPath = np.append(bestPath, 0)
-    bestPath = updateBestPath(bestPath)
-    draw(bestPath)
-
-opt2()
+def getdistmat(coordinates):  
+    num = coordinates.shape[0] #52个坐标点  
+    distmat = np.zeros((20,20)) #52X52距离矩阵  
+    for i in range(num):  
+        for j in range(i,num):  
+            distmat[i][j] = distmat[j][i]=np.linalg.norm(coordinates[i]-coordinates[j])  
+    return distmat  
+  
+def initpara():  
+    alpha = 0.99  
+    t = (1,100)  
+    markovlen = 1000  
+  
+    return alpha,t,markovlen  
+num = coordinates.shape[0]  
+distmat = getdistmat(coordinates) #得到距离矩阵  
+  
+  
+solutionnew = np.arange(num)  
+#valuenew = np.max(num)  
+  
+solutioncurrent = solutionnew.copy()  
+valuecurrent =99000  #np.max这样的源代码可能同样是因为版本问题被当做函数不能正确使用，应取一个较大值作为初始值  
+#print(valuecurrent)  
+  
+solutionbest = solutionnew.copy()  
+valuebest = 99000 #np.max  
+  
+alpha,t2,markovlen = initpara()  
+t = t2[1]  
+  
+result = [] #记录迭代过程中的最优解  
+while t > t2[0]:  
+    for i in np.arange(markovlen):  
+  
+        #下面的两交换和三角换是两种扰动方式，用于产生新解  
+        if np.random.rand() > 0.5:# 交换路径中的这2个节点的顺序  
+            # np.random.rand()产生[0, 1)区间的均匀随机数  
+            while True:#产生两个不同的随机数  
+                loc1 = np.int(np.ceil(np.random.rand()*(num-1)))  
+                loc2 = np.int(np.ceil(np.random.rand()*(num-1)))  
+                ## print(loc1,loc2)  
+                if loc1 != loc2:  
+                    break  
+            solutionnew[loc1],solutionnew[loc2] = solutionnew[loc2],solutionnew[loc1]  
+        else: #三交换  
+            while True:  
+                loc1 = np.int(np.ceil(np.random.rand()*(num-1)))  
+                loc2 = np.int(np.ceil(np.random.rand()*(num-1)))   
+                loc3 = np.int(np.ceil(np.random.rand()*(num-1)))  
+  
+                if((loc1 != loc2)&(loc2 != loc3)&(loc1 != loc3)):  
+                    break  
+  
+            # 下面的三个判断语句使得loc1<loc2<loc3  
+            if loc1 > loc2:  
+                loc1,loc2 = loc2,loc1  
+            if loc2 > loc3:  
+                loc2,loc3 = loc3,loc2  
+            if loc1 > loc2:  
+                loc1,loc2 = loc2,loc1  
+  
+            #下面的三行代码将[loc1,loc2)区间的数据插入到loc3之后  
+            tmplist = solutionnew[loc1:loc2].copy()  
+            solutionnew[loc1:loc3-loc2+1+loc1] = solutionnew[loc2:loc3+1].copy()  
+            solutionnew[loc3-loc2+1+loc1:loc3+1] = tmplist.copy()    
+  
+        valuenew = 0  
+        for i in range(num-1):  
+            valuenew += distmat[solutionnew[i]][solutionnew[i+1]]  
+        valuenew += distmat[solutionnew[0]][solutionnew[2]]  
+       # print (valuenew)  
+        if valuenew<valuecurrent: #接受该解  
+             
+            #更新solutioncurrent 和solutionbest  
+            valuecurrent = valuenew  
+            solutioncurrent = solutionnew.copy()  
+  
+            if valuenew < valuebest:  
+                valuebest = valuenew  
+                solutionbest = solutionnew.copy()  
+        else:#按一定的概率接受该解  
+            if np.random.rand() < np.exp(-(valuenew-valuecurrent)/t):  
+                valuecurrent = valuenew  
+                solutioncurrent = solutionnew.copy()  
+            else:  
+                solutionnew = solutioncurrent.copy()  
+    t = alpha*t  
+    result.append(valuebest)  
+    print (t) #程序运行时间较长，打印t来监视程序进展速度  
+#用来显示结果  
+plt.plot(np.array(result))  
+plt.ylabel("bestvalue")  
+plt.xlabel("t")  
+plt.show()
